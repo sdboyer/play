@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync"
 )
 
@@ -18,23 +17,18 @@ func main() {
 
 	max := runtime.GOMAXPROCS(runtime.NumCPU())
 	wg := &sync.WaitGroup{}
-	ch := make(chan string, max)
+	ch := make(chan *os.File, max)
 	for i := 0; i < max; i++ {
 		wg.Add(1)
 		go func() {
-			for path := range ch {
-				f, err := os.Open(path)
-				if err != nil {
-					continue
-				}
-
+			for f := range ch {
 				h := sha256.New()
-				if _, err = io.Copy(h, f); err != nil {
+				if _, err := io.Copy(h, f); err != nil {
 					f.Close()
 					log.Fatal(err)
 				}
 
-				fmt.Println(strings.TrimPrefix(path, wd), hex.EncodeToString(h.Sum(nil)))
+				fmt.Println(hex.EncodeToString(h.Sum(nil)))
 				f.Close()
 			}
 			wg.Done()
@@ -56,20 +50,13 @@ func main() {
 			return nil
 		}
 
-		ch <- path
-		//var f *os.File
-		//f, err = os.Open(path)
-		//if err != nil {
-		//return err
-		//}
-		//defer f.Close()
+		var f *os.File
+		f, err = os.Open(path)
+		if err != nil {
+			return err
+		}
+		ch <- f
 
-		//h := sha256.New()
-		//if _, err = io.Copy(h, f); err != nil {
-		//log.Fatal(err)
-		//}
-
-		//fmt.Println(strings.TrimPrefix(path, wd), hex.EncodeToString(h.Sum(nil)))
 		return nil
 	})
 
